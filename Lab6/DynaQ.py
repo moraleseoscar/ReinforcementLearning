@@ -15,7 +15,7 @@ def run(episodes, planning_steps=10, exploration_bonus=0.01, is_training=True, r
         with open("Lab6/q_learning_results/frozen_lake4x4_dynaq.pkl", "rb") as f:
             q = pickle.load(f)
 
-    learning_rate_a = 0.9       # Alpha or learning state
+    learning_rate_a = 0.9       # Alpha or learning rate
     discount_factor_g = 0.9     # Gamma or discount factor
 
     epsilon = 1 if is_training else 0  # No exploration during evaluation
@@ -23,11 +23,16 @@ def run(episodes, planning_steps=10, exploration_bonus=0.01, is_training=True, r
     rng = np.random.default_rng()
 
     rewards_per_episode = np.zeros(episodes)
-    
+    steps_per_episode = np.zeros(episodes)  # Steps taken per episode
+    success_rate = np.zeros(episodes)       # Success rate tracking
+    avg_reward = np.zeros(episodes)         # Average reward per episode
+    exploration_vs_exploitation = []        # Tracking exploration vs exploitation
+
     for i in range(episodes):
         state = env.reset()[0]      # Initial state
         terminated = False          # True when fall in hole or reached goal
         truncated = False           # True when actions > 200
+        step_count = 0
 
         while not terminated and not truncated:
             if is_training and rng.random() < epsilon:
@@ -39,6 +44,7 @@ def run(episodes, planning_steps=10, exploration_bonus=0.01, is_training=True, r
                     action = np.argmax(q[state, :])  # No exploration bonus during evaluation
 
             new_state, reward, terminated, truncated, _ = env.step(action)
+            step_count += 1
 
             if is_training:
                 visit_count[state, action] += 1
@@ -66,20 +72,52 @@ def run(episodes, planning_steps=10, exploration_bonus=0.01, is_training=True, r
             if epsilon == 0:
                 learning_rate_a = 0.0001
 
-        if reward == 1:
-            rewards_per_episode[i] = 1
+        rewards_per_episode[i] = reward
+        steps_per_episode[i] = step_count
+        success_rate[i] = np.sum(rewards_per_episode[max(0, i-100):i+1]) / min(100, i+1)  # Success rate as a moving average
+        avg_reward[i] = np.mean(rewards_per_episode[max(0, i-100):i+1])  # Average reward as a moving average
+
+        if is_training:
+            exploration_vs_exploitation.append(np.count_nonzero(visit_count))  # Track the number of state-action pairs visited
 
     env.close()
 
-    sum_rewards = np.zeros(episodes)
-    for t in range(episodes):
-        sum_rewards[t] = np.sum(rewards_per_episode[max(0, t-100):(t+1)])
-    plt.plot(sum_rewards)
-    plt.title("Dyna-Q+ episodes rating learning")
-    plt.xlabel("Number of episodes")
-    plt.ylabel("Number of rewards")
-    plt.savefig('Lab6/q_learning_results/frozen_lake4x4_dynaq.png')
+    # Plotting the graphs
 
+    # i. Success Rate per Episode
+    plt.figure()
+    plt.plot(success_rate)
+    plt.title("Success Rate per Episode")
+    plt.xlabel("Number of episodes")
+    plt.ylabel("Success Rate")
+    plt.savefig('Lab6/q_learning_results/success_rate.png')
+
+    # ii. Average Reward per Episode
+    plt.figure()
+    plt.plot(avg_reward)
+    plt.title("Average Reward per Episode")
+    plt.xlabel("Number of episodes")
+    plt.ylabel("Average Reward")
+    plt.savefig('Lab6/q_learning_results/average_reward.png')
+
+    # iii. Convergence Rate
+    plt.figure()
+    plt.plot(steps_per_episode)
+    plt.title("Convergence Rate (Steps per Episode)")
+    plt.xlabel("Number of episodes")
+    plt.ylabel("Steps to Goal")
+    plt.savefig('Lab6/q_learning_results/convergence_rate.png')
+
+    # iv. Exploration vs. Exploitation (Dyna-Q+ only)
+    if is_training:
+        plt.figure()
+        plt.plot(exploration_vs_exploitation)
+        plt.title("Exploration vs. Exploitation")
+        plt.xlabel("Number of episodes")
+        plt.ylabel("Number of State-Action Pairs Visited")
+        plt.savefig('Lab6/q_learning_results/exploration_vs_exploitation.png')
+
+    # Save Q-table after training
     if is_training:
         with open("Lab6/q_learning_results/frozen_lake4x4_dynaq.pkl", "wb") as f:
             pickle.dump(q, f)
