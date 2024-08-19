@@ -80,6 +80,8 @@ class MCTS:
         self.env = env
         self.iterations = iterations
         self.rewards_per_episode = []
+        self.successful_interactions = []
+        self.steps_per_interaction = []
 
     def run(self, initial_state):
         root = MCTSNode(state=initial_state)
@@ -94,8 +96,14 @@ class MCTS:
                     break
 
             # Simulation
-            reward_sum = self.rollout(node.state)
+            reward_sum, steps = self.rollout(node.state)
             self.rewards_per_episode.append(reward_sum)
+            self.steps_per_interaction.append(steps)
+
+            if reward_sum > 0:
+                self.successful_interactions.append(1)
+            else:
+                self.successful_interactions.append(0)
 
             # Backpropagation
             self.backpropagate(node, reward_sum)
@@ -106,6 +114,7 @@ class MCTS:
 
     def rollout(self, state):
         total_reward = 0
+        steps = 0
         self.env.reset()
         self.env.agent_pos = state
 
@@ -113,9 +122,10 @@ class MCTS:
             action = random.choice(range(4))  # Random action in grid world
             next_state, reward, terminated = self.env.step(action)
             total_reward += reward
+            steps += 1
             if terminated:
                 break
-        return total_reward
+        return total_reward, steps
 
     def backpropagate(self, node, reward):
         while node is not None:
@@ -132,13 +142,29 @@ initial_state = env.reset()
 best_action_node = mcts.run(initial_state)
 best_action = list(best_action_node.children.keys())[0]  # Get the best action
 
-# Plotting rewards per episode after simulation
+# Plotting metrics after simulation
+plt.figure(figsize=(15, 5))
+
+plt.subplot(1, 3, 1)
 plt.plot(mcts.rewards_per_episode)
 plt.xlabel('Episode')
 plt.ylabel('Reward')
 plt.title('Rewards per Episode in GridWorld Simulation')
+
+plt.subplot(1, 3, 2)
+plt.bar(['Successful Interactions'], [sum(mcts.successful_interactions)])
+plt.ylabel('Count')
+plt.title('Number of Successful Interactions')
+
+plt.subplot(1, 3, 3)
+plt.bar(['Average Steps'], [np.mean(mcts.steps_per_interaction)])
+plt.ylabel('Average')
+plt.title('Average Steps per Interaction')
+
+plt.tight_layout()
 plt.show()
 
+# Execute the best action sequence in FrozenLake
 frozenlake_env = gym.make('FrozenLake-v1', render_mode="human")
 state, info = frozenlake_env.reset()
 done = False
