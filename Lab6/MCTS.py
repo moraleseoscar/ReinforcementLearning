@@ -143,26 +143,12 @@ best_action_node = mcts.run(initial_state)
 best_action = list(best_action_node.children.keys())[0]  # Get the best action
 
 # Plotting metrics after simulation
-plt.figure(figsize=(15, 5))
-
-plt.subplot(1, 3, 1)
+plt.figure()
 plt.plot(mcts.rewards_per_episode)
-plt.xlabel('Episode')
-plt.ylabel('Reward')
-plt.title('Rewards per Episode in GridWorld Simulation')
-
-plt.subplot(1, 3, 2)
-plt.bar(['Successful Interactions'], [sum(mcts.successful_interactions)])
-plt.ylabel('Count')
-plt.title('Number of Successful Interactions')
-
-plt.subplot(1, 3, 3)
-plt.bar(['Average Steps'], [np.mean(mcts.steps_per_interaction)])
-plt.ylabel('Average')
-plt.title('Average Steps per Interaction')
-
-plt.tight_layout()
-plt.show()
+plt.title("Reward per Episode")
+plt.xlabel("Episode")
+plt.ylabel("Reward")
+plt.savefig('ReinforcementLearning\Lab6\MCTS\\reward_episode.png')
 
 # Execute the best action sequence in FrozenLake
 frozenlake_env = gym.make('FrozenLake-v1', render_mode="human")
@@ -171,7 +157,6 @@ done = False
 
 while not done:
     action = best_action  # Use the best action from MCTS
-    print(action)
     state, reward, done, truncated, info = frozenlake_env.step(action)
     frozenlake_env.render()
 
