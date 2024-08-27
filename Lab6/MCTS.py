@@ -1,163 +1,134 @@
+import gymnasium as gym
 import numpy as np
 import random
-import math
 import matplotlib.pyplot as plt
-import gymnasium as gym
 
-class GridWorld:
-    def __init__(self, size=4):
-        self.size = size
-        self.n_states = size * size
-        self.reset()
-        
-    def reset(self):
-        self.agent_pos = 0
-        self.terminated = False
-        return self.agent_pos
-    
-    def step(self, action):
-        if self.terminated:
-            raise RuntimeError("Step called after termination")
-        
-        row, col = divmod(self.agent_pos, self.size)
-        
-        if action == 0:  # Up
-            row = max(0, row - 1)
-        elif action == 1:  # Right
-            col = min(self.size - 1, col + 1)
-        elif action == 2:  # Down
-            row = min(self.size - 1, row + 1)
-        elif action == 3:  # Left
-            col = max(0, col - 1)
-        
-        self.agent_pos = row * self.size + col
-        
-        # Check for termination
-        if self.agent_pos == self.size * self.size - 1:  # Goal state
-            reward = 1
-            self.terminated = True
-        else:
-            reward = -0.1  # Penalty for each step to encourage faster solutions
-        
-        return self.agent_pos, reward, self.terminated
-    
-    def action_space(self):
-        return 4  # Number of actions: Up, Right, Down, Left
-
-class MCTSNode:
+class Node:
     def __init__(self, state, parent=None):
         self.state = state
         self.parent = parent
         self.children = {}
         self.visits = 0
-        self.value = 0
+        self.reward = 0.0
+    
+    def is_fully_expanded(self, env):
+        return len(self.children) == env.action_space.n
 
-    def is_fully_expanded(self):
-        return len(self.children) == 4  # Number of possible actions
+    def best_child(self, c_param=np.sqrt(2.0)):
+        best_value = float('-inf')
+        best_child = None
 
-    def best_child(self, c_param=1.4):
-        if self.visits == 0:
-            return random.choice(list(self.children.values()))
-        choices_weights = [
-            (child.value / (child.visits + 1e-4)) + c_param * math.sqrt((2 * math.log(self.visits + 1)) / (child.visits + 1e-4))
-            for child in self.children.values()
-        ]
-        return list(self.children.values())[np.argmax(choices_weights)]
+        for child in self.children.values():
+            if child.visits == 0:
+                return random.choice(list(self.children.values()))
 
-    def expand(self, env):
-        actions = [a for a in range(4) if a not in self.children]
-        if not actions:
-            return self, 0, True  # No actions left to expand
-
-        action = random.choice(actions)
-        next_state, reward, terminated = env.step(action)
-        child_node = MCTSNode(state=next_state, parent=self)
-        self.children[action] = child_node
-        return child_node, reward, terminated
-
-class MCTS:
-    def __init__(self, env, iterations=1000):
-        self.env = env
-        self.iterations = iterations
-        self.rewards_per_episode = []
-        self.successful_interactions = []
-        self.steps_per_interaction = []
-
-    def run(self, initial_state):
-        root = MCTSNode(state=initial_state)
-        for _ in range(self.iterations):
-            node = root
-            self.env.reset()
-
-            # Selection and Expansion
-            while not node.is_fully_expanded():
-                node, reward, terminated = node.expand(self.env)
-                if terminated:
-                    break
-
-            # Simulation
-            reward_sum, steps = self.rollout(node.state)
-            self.rewards_per_episode.append(reward_sum)
-            self.steps_per_interaction.append(steps)
-
-            if reward_sum > 0:
-                self.successful_interactions.append(1)
             else:
-                self.successful_interactions.append(0)
+                exploitation_term = child.reward / child.visits
+                exploration_term = c_param * np.sqrt(2 * np.log(self.visits) / child.visits)
+                child_value = exploitation_term + exploration_term
 
-            # Backpropagation
-            self.backpropagate(node, reward_sum)
+                if child_value > best_value:
+                    best_value = child_value
+                    best_child = child
 
-        # Return the best action from the root node
-        best_action = root.best_child(c_param=0.0)
-        return best_action
+        return best_child
 
-    def rollout(self, state):
-        total_reward = 0
-        steps = 0
-        self.env.reset()
-        self.env.agent_pos = state
+def select(node, env):
+    while node.is_fully_expanded(env):
+        node = node.best_child()
+    return node
 
-        while True:
-            action = random.choice(range(4))  # Random action in grid world
-            next_state, reward, terminated = self.env.step(action)
-            total_reward += reward
-            steps += 1
-            if terminated:
-                break
-        return total_reward, steps
+def expand(node, env):
+    if not node.is_fully_expanded(env):
+        action = random.choice([a for a in range(env.action_space.n) if a not in node.children])
+        next_state = env.step(action)[0]
 
-    def backpropagate(self, node, reward):
-        while node is not None:
-            node.visits += 1
-            node.value += reward
-            node = node.parent
+        child_node = Node(next_state, node)
+        node.children[action] = child_node
+        return child_node
+    return node
 
-# Main script
-env = GridWorld(size=4)
-mcts = MCTS(env=env, iterations=1000)
-initial_state = env.reset()
+def simulate(env, node):
+    steps = 0
+    total_reward = 0
+    current_state = node.state
+    env.unwrapped.s = current_state  # Reset the environment to the current node state
+    done = False
 
-# Running MCTS in the simulated grid world
-best_action_node = mcts.run(initial_state)
-best_action = list(best_action_node.children.keys())[0]  # Get the best action
+    while not done:
+        action = env.action_space.sample()
+        _, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
+        total_reward += reward
+        steps += 1
 
-# Plotting metrics after simulation
-plt.figure()
-plt.plot(mcts.rewards_per_episode)
-plt.title("Reward per Episode")
-plt.xlabel("Episode")
-plt.ylabel("Reward")
-plt.savefig('ReinforcementLearning\Lab6\MCTS\\reward_episode.png')
+    return total_reward, steps
 
-# Execute the best action sequence in FrozenLake
-frozenlake_env = gym.make('FrozenLake-v1', render_mode="human")
-state, info = frozenlake_env.reset()
-done = False
+def backpropagate(node, reward):
+    while node is not None:
+        node.visits += 1
+        node.reward += reward
+        node = node.parent
 
-while not done:
-    action = best_action  # Use the best action from MCTS
-    state, reward, done, truncated, info = frozenlake_env.step(action)
-    frozenlake_env.render()
 
-frozenlake_env.close()
+
+def mcts(env, root, num_simulations):
+    success_list = []
+    successful_episodes = 0
+    
+    steps_to_goal = []
+
+    rewards = []
+    cumulative_reward = 0.0
+
+    for i in range(1, num_simulations+1):
+        env.reset()
+        node = select(root, env)
+        node = expand(node, env)
+        reward, steps = simulate(env, node)
+
+        cumulative_reward += reward
+        average_reward = cumulative_reward / i
+        rewards.append(average_reward)
+
+        if reward == 1: 
+            successful_episodes += 1
+            steps_to_goal.append(steps)
+
+        success_rate = successful_episodes / i
+        success_list.append(success_rate)
+
+        backpropagate(node, reward)
+
+    plt.plot(success_list)
+    plt.xlabel('Episodes')
+    plt.ylabel('Success Rate')
+    plt.title('Episodes Success Rate - MCTS')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(rewards)
+    plt.xlabel('Episodes')
+    plt.ylabel('Average Reward')
+    plt.title('Average Reward Per Episode - MCTS')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(steps_to_goal)
+    plt.xlabel('Successful Episodes')
+    plt.ylabel('Number of Steps to Reach the Goal')
+    plt.title('Converge Rate - MCTS')
+    plt.grid(True)
+    plt.show()
+    
+    best_action = max(root.children, key=lambda action: root.children[action].visits)
+    return best_action
+
+env = gym.make('FrozenLake-v1', is_slippery=False)
+env.reset()
+
+root = Node(env.unwrapped.s)
+
+best_action = mcts(env, root, num_simulations=50000)
+
+print("Best action selected by MCTS:", best_action)
