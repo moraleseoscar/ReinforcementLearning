@@ -15,7 +15,7 @@ class Node:
     def is_fully_expanded(self, env):
         return len(self.children) == env.action_space.n
 
-    def best_child(self, c_param=2.0):
+    def best_child(self, c_param=np.sqrt(2.0)):
         best_value = float('-inf')
         best_child = None
 
@@ -107,21 +107,21 @@ def mcts(env, root, num_simulations):
     plt.plot(success_list)
     plt.xlabel('Episodes')
     plt.ylabel('Success Rate')
-    plt.title('Success Rate of MCTS over Time')
+    plt.title('Episodes Success Rate - MCTS')
     plt.grid(True)
     plt.show()
 
     plt.plot(rewards)
     plt.xlabel('Episodes')
     plt.ylabel('Average Reward')
-    plt.title('Average Reward Per Episode Over Time')
+    plt.title('Average Reward Per Episode - MCTS')
     plt.grid(True)
     plt.show()
 
     plt.plot(steps_to_goal)
     plt.xlabel('Successful Episodes')
     plt.ylabel('Number of Steps to Reach the Goal')
-    plt.title('Steps Taken to Reach the Goal Over Time')
+    plt.title('Converge Rate - MCTS')
     plt.grid(True)
     plt.show()
     
@@ -133,6 +133,6 @@ env.reset()
 
 root = Node(env.unwrapped.s)
 
-best_action = mcts(env, root, num_simulations=15000)
+best_action = mcts(env, root, num_simulations=50000)
 
 print("Best action selected by MCTS:", best_action)
