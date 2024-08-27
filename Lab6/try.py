@@ -63,9 +63,6 @@ def simulate(env, node):
         total_reward += reward
         steps += 1
 
-        if done and reward == 1: 
-            return total_reward, steps
-
     return total_reward, steps
 
 def backpropagate(node, reward):
