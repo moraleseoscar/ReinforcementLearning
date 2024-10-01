@@ -10,9 +10,9 @@ from collections import deque
 class DQN(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 24)
-        self.fc2 = nn.Linear(24, 24)
-        self.fc3 = nn.Linear(24, action_dim)
+        self.fc1 = nn.Linear(state_dim, 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, action_dim)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -98,7 +98,7 @@ state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.n
 agent = DQNAgent(state_dim, action_dim)
 
-episodes = 500
+episodes = 1000
 epsilon = 1.0
 epsilon_min = 0.01
 epsilon_decay = 0.995
@@ -133,13 +133,15 @@ env = gym.make('CartPole-v1', render_mode='human')  # Habilitar el renderizado
 state, _ = env.reset()
 done = False
 total_reward = 0
+steps = 0
 
-while not done:
+while not done and steps != episodes+1:
     env.render()  # Renderizar la simulación
     action = agent.select_action(state, epsilon=0.0)  # Acción sin exploración (exploitation puro)
     next_state, reward, done, _, _ = env.step(action)
     state = next_state
     total_reward += reward
+    steps += 1
 
 print(f"Total reward after training: {total_reward}")
 env.close()
