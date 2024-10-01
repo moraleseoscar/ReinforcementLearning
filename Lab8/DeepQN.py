@@ -5,6 +5,7 @@ import gymnasium as gym
 import numpy as np
 import random
 from collections import deque
+import matplotlib.pyplot as plt
 
 # Definir la arquitectura de la red neuronal
 class DQN(nn.Module):
@@ -98,16 +99,17 @@ state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.n
 agent = DQNAgent(state_dim, action_dim)
 
-episodes = 1000
+episodes = 500
 epsilon = 1.0
 epsilon_min = 0.01
 epsilon_decay = 0.995
 total_rewards = []
+average_rewards = []
 
 # Entrenamiento del agente
 for episode in range(episodes):
     state, _ = env.reset()
-    total_reward = 0
+    episode_reward = 0
     done = False
 
     while not done:
@@ -116,14 +118,23 @@ for episode in range(episodes):
         agent.replay_buffer.add(state, action, reward, next_state, done)
 
         state = next_state
-        total_reward += reward
+        episode_reward += reward
+        total_rewards.append(episode_reward)
         agent.train()
 
     epsilon = max(epsilon_min, epsilon * epsilon_decay)
-    total_rewards.append(total_reward)
-    print(f"Episode {episode}, Reward: {total_reward}, Epsilon: {epsilon}")
+    avg_reward = sum(total_rewards) / len(total_rewards)
+    average_rewards.append(avg_reward)
+    print(f"Episode {episode}, Average Reward: {avg_reward} Epsilon: {epsilon}")
 
 env.close()
+
+plt.plot(average_rewards)
+plt.xlabel('Episodes')
+plt.ylabel('Average Reward')
+plt.title('Average Reward Per Episode - DQN')
+plt.grid(True)
+plt.show()
 
 # ------------------------------------------
 # Ejecutar el entorno con el agente entrenado
