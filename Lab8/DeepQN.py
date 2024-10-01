@@ -99,7 +99,7 @@ state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.n
 agent = DQNAgent(state_dim, action_dim)
 
-episodes = 500
+episodes = 1000
 epsilon = 1.0
 epsilon_min = 0.01
 epsilon_decay = 0.995
@@ -132,7 +132,7 @@ env.close()
 plt.plot(average_rewards)
 plt.xlabel('Episodes')
 plt.ylabel('Average Reward')
-plt.title('Average Reward Per Episode - DQN')
+plt.title('Average Reward Per Episode')
 plt.grid(True)
 plt.show()
 
@@ -146,7 +146,7 @@ done = False
 total_reward = 0
 steps = 0
 
-while not done and steps != episodes+1:
+while not done:
     env.render()  # Renderizar la simulación
     action = agent.select_action(state, epsilon=0.0)  # Acción sin exploración (exploitation puro)
     next_state, reward, done, _, _ = env.step(action)
